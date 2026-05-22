@@ -2,52 +2,48 @@ name: FeiQiu
 options:
   bundleIdPrefix: com.feiqiu
   deploymentTarget:
-    iOS: "15.0"
+    macOS: "13.0"
   developmentLanguage: zh-Hans
   createIntermediateGroups: true
 
 settings:
   base:
     SWIFT_VERSION: 5.7
-    IPHONEOS_DEPLOYMENT_TARGET: 15.0
+    MACOSX_DEPLOYMENT_TARGET: "13.0"
     ENABLE_BITCODE: NO
-    TARGETED_DEVICE_FAMILY: "1,2"
 
 targets:
   FeiQiu:
     type: application
-    platform: iOS
+    platform: macOS
     sources:
-      - path: FeiQiu
+      - path: FeiQiu-macOS
         excludes:
           - "Info.plist"
-    resources:
-      - path: FeiQiu/Assets
-        optional: true
     info:
-      path: FeiQiu/Info.plist
+      path: FeiQiu-macOS/Info.plist
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.feiqiu.ios
+        PRODUCT_BUNDLE_IDENTIFIER: com.feiqiu.macos
         PRODUCT_NAME: FeiQiu
+        PRODUCT_MODULE_NAME: FeiQiu
         DEVELOPMENT_TEAM: ""
         CODE_SIGN_STYLE: Automatic
         ENABLE_PREVIEWS: YES
         SWIFT_EMIT_LOC_STRINGS: YES
-        INFOPLIST_KEY_UILaunchScreen_Generation: YES
-        INFOPLIST_KEY_UIApplicationSceneManifest_Generation: YES
-        INFOPLIST_KEY_UIRequiresFullScreen: NO
+        INFOPLIST_KEY_LSApplicationCategoryType: "public.app-category.utilities"
+        COMBINE_HIDPI_IMAGES: YES
 
   FeiQiuTests:
     type: bundle.unit-test
-    platform: iOS
+    platform: macOS
     sources:
       - FeiQiuTests
     dependencies:
       - target: FeiQiu
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.feiqiu.ios.tests
+        PRODUCT_BUNDLE_IDENTIFIER: com.feiqiu.macos.tests
 
 schemes:
   FeiQiu:

@@ -20,55 +20,23 @@
     <string>0.1.0</string>
     <key>CFBundleVersion</key>
     <string>1</string>
-    <key>LSRequiresIPhoneOS</key>
-    <true/>
-    <key>UILaunchScreen</key>
-    <dict>
-        <key>UIColorName</key>
-        <string></string>
-    </dict>
-    <key>UIRequiredDeviceCapabilities</key>
-    <array>
-        <string>armv7</string>
-    </array>
-    <key>UISupportedInterfaceOrientations</key>
-    <array>
-        <string>UIInterfaceOrientationPortrait</string>
-        <string>UIInterfaceOrientationLandscapeLeft</string>
-        <string>UIInterfaceOrientationLandscapeRight</string>
-    </array>
-    
-    <!-- 关键: iOS 本地网络权限声明 -->
-    <key>NSLocalNetworkUsageDescription</key>
-    <string>飞秋需要访问本地局域网,以便发现并和同网段的飞秋/飞鸽传书用户互相通讯及传输文件。</string>
-    
-    <!-- 飞秋使用的 Bonjour 服务声明 -->
-    <key>NSBonjourServices</key>
-    <array>
-        <string>_ipmsg._udp</string>
-        <string>_ipmsg._tcp</string>
-    </array>
-    
-    <!-- 后台模式声明 -->
-    <key>UIBackgroundModes</key>
-    <array>
-        <string>fetch</string>
-        <string>processing</string>
-    </array>
-    
-    <!-- 允许任意 HTTP (LAN 内通讯需要) -->
+    <key>LSMinimumSystemVersion</key>
+    <string>13.0</string>
+    <key>LSApplicationCategoryType</key>
+    <string>public.app-category.utilities</string>
     <key>NSAppTransportSecurity</key>
     <dict>
         <key>NSAllowsLocalNetworking</key>
         <true/>
     </dict>
-    
-    <!-- 文档相关 -->
-    <key>UISupportsDocumentBrowser</key>
-    <true/>
-    <key>LSSupportsOpeningDocumentsInPlace</key>
-    <true/>
-    <key>UIFileSharingEnabled</key>
-    <true/>
+    <key>NSLocalNetworkUsageDescription</key>
+    <string>飞秋需要访问本地局域网,以便发现并和同网段的飞秋/飞鸽传书用户互相通讯及传输文件。</string>
+    <key>NSBonjourServices</key>
+    <array>
+        <string>_ipmsg._udp</string>
+        <string>_ipmsg._tcp</string>
+    </array>
+    <key>LSUIElement</key>
+    <false/>
 </dict>
 </plist>
