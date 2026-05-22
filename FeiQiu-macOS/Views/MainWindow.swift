@@ -104,6 +104,22 @@ struct SidebarView: View {
             SearchField(text: $searchText, placeholder: "搜索用户...")
                 .padding(8)
             
+            // 群发按钮
+            Button {
+                showBroadcastDialog()
+            } label: {
+                HStack {
+                    Image(systemName: "megaphone.fill")
+                    Text("群发消息")
+                }
+                .font(.system(size: 12))
+                .frame(maxWidth: .infinity)
+                .padding(.vertical, 6)
+            }
+            .buttonStyle(.bordered)
+            .tint(.orange)
+            .padding(.horizontal, 12)
+            
             // 用户列表
             List(selection: $selectedUser) {
                 ForEach(groupedUsers, id: \.0) { groupName, users in
@@ -142,6 +158,29 @@ struct SidebarView: View {
         case .connecting: return .yellow
         case .disconnected: return .gray
         case .failed: return .red
+        }
+    }
+    
+    private func showBroadcastDialog() {
+        let alert = NSAlert()
+        alert.messageText = "群发消息"
+        alert.informativeText = "消息将发送给所有 \(manager.users.count) 位在线用户"
+        alert.alertStyle = .informational
+        
+        let textField = NSTextField(frame: NSRect(x: 0, y: 0, width: 300, height: 60))
+        textField.placeholderString = "输入要群发的消息..."
+        textField.maximumNumberOfLines = 3
+        alert.accessoryView = textField
+        
+        alert.addButton(withTitle: "发送")
+        alert.addButton(withTitle: "取消")
+        
+        let response = alert.runModal()
+        if response == .alertFirstButtonReturn {
+            let text = textField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !text.isEmpty {
+                manager.broadcastText(text)
+            }
         }
     }
 }
@@ -236,8 +275,7 @@ struct UserRow: View {
     }
     
     private var avatarGradient: LinearGradient {
-        let colors: [Color] = [.orange, .pink]
-        return LinearGradient(colors: colors, startPoint: .topLeading, endPoint: .bottomTrailing)
+        LinearGradient(colors: [.orange, .pink], startPoint: .topLeading, endPoint: .bottomTrailing)
     }
 }
 

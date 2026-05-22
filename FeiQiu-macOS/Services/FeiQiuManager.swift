@@ -32,6 +32,9 @@ class FeiQiuManager: ObservableObject {
     // 用于消息去重
     private var seenPackets: Set<UInt32> = []
     
+    // 定期保存定时器
+    private var autoSaveTimer: Timer?
+    
     enum ConnectionState {
         case disconnected
         case connecting
@@ -63,6 +66,9 @@ class FeiQiuManager: ObservableObject {
             localIPAddress = firstIP
         }
         
+        // 加载历史聊天记录
+        chatHistory = ChatHistoryStore.shared.loadAllHistory()
+        
         // 启动 UDP/TCP
         udpService.start()
         tcpService.start()
@@ -72,10 +78,24 @@ class FeiQiuManager: ObservableObject {
             self?.udpService.sendEntryBroadcast(groupName: self?.groupName ?? "")
             self?.connectionState = .connected
         }
+        
+        // 启动定期自动保存（每 30 秒）
+        autoSaveTimer?.invalidate()
+        autoSaveTimer = Timer.scheduledTimer(withTimeInterval: 30, repeats: true) { [weak self] _ in
+            guard let self = self else { return }
+            ChatHistoryStore.shared.saveAllHistory(self.chatHistory)
+        }
     }
     
     /// 停止服务
     func stop() {
+        // 停止自动保存
+        autoSaveTimer?.invalidate()
+        autoSaveTimer = nil
+        
+        // 保存聊天记录
+        ChatHistoryStore.shared.saveAllHistory(chatHistory)
+        
         // 通知其他人下线
         udpService.sendExitBroadcast()
         
@@ -84,6 +104,18 @@ class FeiQiuManager: ObservableObject {
         tcpService.stop()
         
         connectionState = .disconnected
+    }
+    
+    /// 清除指定用户的聊天记录
+    func clearChatHistory(for user: LANUser) {
+        chatHistory[user.ipAddress] = []
+        ChatHistoryStore.shared.clearHistory(for: user.ipAddress)
+    }
+    
+    /// 清除所有聊天记录
+    func clearAllChatHistory() {
+        chatHistory.removeAll()
+        ChatHistoryStore.shared.clearAllHistory()
     }
     
     // MARK: - 配置服务回调
@@ -274,6 +306,30 @@ class FeiQiuManager: ObservableObject {
             chatHistory[user.ipAddress] = []
         }
         chatHistory[user.ipAddress]?.append(message)
+    }
+    
+    /// 群发消息给所有在线用户
+    func broadcastText(_ text: String) {
+        let packetNo = UInt32(Date().timeIntervalSince1970)
+        
+        // 给每个在线用户单独发一份（更可靠），同时也广播
+        for user in users {
+            udpService.sendChatMessage(text: "[群发] \(text)", to: user.ipAddress)
+            
+            // 加入本地聊天历史
+            let message = ChatMessage(
+                packetNo: packetNo,
+                sender: nil,
+                direction: .sent,
+                type: .text,
+                content: "[群发] \(text)"
+            )
+            
+            if chatHistory[user.ipAddress] == nil {
+                chatHistory[user.ipAddress] = []
+            }
+            chatHistory[user.ipAddress]?.append(message)
+        }
     }
     
     /// 发送文件

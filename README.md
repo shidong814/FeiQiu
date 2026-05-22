@@ -1,132 +1,123 @@
-# 🦐 FeiQiu-macOS
+# 🦐 飞秋 FeiQiu - macOS 版
 
-macOS 版飞秋 — 兼容 IPMSG / 飞鸽传书协议的局域网即时通讯工具。
-
-可与 Windows 飞秋、飞鸽传书互通！
+兼容 IPMSG / Windows 飞秋 / 飞鸽传书协议的 macOS 局域网即时通讯工具。
 
 ## ✨ 特性
 
-- ✅ 兼容 IP Messenger 协议，可与 Windows 飞秋、飞鸽传书互通
-- ✅ 局域网用户自动发现
-- ✅ 实时聊天消息收发 + 送达/已读回执
-- ✅ 文件传输（TCP）
-- ✅ macOS 原生界面（SwiftUI）
-- ✅ 菜单栏常驻图标
-- ✅ 后台持续运行（无 iOS 后台限制）
-- ✅ UTF-8 / GBK 双编码兼容
-- ✅ 支持 macOS 13+
+- ✅ **兼容 IPMSG 协议** — 与 Windows 飞秋、飞鸽传书互通
+- ✅ **局域网自动发现** — 同网段用户自动上线
+- ✅ **实时聊天** — 消息收发 + 送达/已读回执
+- ✅ **文件传输** — 选择/拖拽/截图发送 + 进度跟踪
+- ✅ **群发消息** — 一键群发给所有在线用户
+- ✅ **聊天记录持久化** — 关闭重启不丢消息
+- ✅ **macOS 原生** — SwiftUI 三栏布局 + 菜单栏图标
+- ✅ **UTF-8/GBK 双编码** — 兼容老版飞秋
+- ✅ **暗黑模式** — 自动适配系统主题
 
-## 🏗️ 架构
+## 📸 界面预览
 
-```
-┌───────────────────────────────────┐
-│        SwiftUI macOS 界面          │
-│  三栏布局 / 菜单栏 / 聊天气泡       │
-├───────────────────────────────────┤
-│         FeiQiuManager             │
-│  用户列表 / 聊天历史 / 消息确认     │
-├──────────────┬────────────────────┤
-│  UDP Service │  TCP File Service  │
-│ BSD Socket   │  NWConnection      │
-│ 广播/消息收发 │  文件传输           │
-└──────────────┴────────────────────┘
-```
+三栏布局：左侧用户列表（搜索+群发） | 右侧聊天窗口（气泡+附件）
 
-## 📡 协议规范
-
-兼容 IPMSG v2 协议：
-
-- **端口**: UDP/TCP 2425
-- **消息格式**: `版本号:包序号:用户名:主机名:命令字:附加数据`
-- **字符编码**: UTF-8（优先） / GBK（fallback）
-
-### 主要命令字
-
-| 命令字 | 名称 | 说明 |
-|--------|------|------|
-| `0x00000001` | BR_ENTRY | 上线广播 |
-| `0x00000002` | BR_EXIT | 下线通知 |
-| `0x00000003` | ANSENTRY | 应答上线 |
-| `0x00000020` | SENDMSG | 发送消息 |
-| `0x00000021` | RECVMSG | 消息接收确认 |
-| `0x00000030` | READMSG | 已读通知 |
-| `0x00000060` | GETFILEDATA | 请求文件数据 |
-
-## 🛠️ 快速开始
+## 🚀 快速开始
 
 ### 环境要求
 
-- macOS 13.0+
+- macOS 13.0 (Ventura)+
 - Xcode 14.0+
-- Swift 5.7+
+- XcodeGen
 
-### 方式 1：XcodeGen（推荐）
+### 一键构建
 
 ```bash
-# 安装 XcodeGen
-brew install xcodegen
+# 克隆仓库
+git clone https://github.com/你的用户名/FeiQiu.git
+cd FeiQiu
 
 # 生成 Xcode 项目
-cd FeiQiu-macOS
+brew install xcodegen
 xcodegen generate
 
 # 打开并运行
 open FeiQiu.xcodeproj
 ```
 
-### 方式 2：手动创建
+> 📖 详细步骤见 [BUILD_GUIDE.md](BUILD_GUIDE.md)
 
-1. Xcode → File → New → Project → macOS → App
-2. Interface: SwiftUI, Language: Swift
-3. 删除自动生成文件，拖入 `FeiQiu-macOS/` 目录
-4. 替换 Info.plist
-5. 编译运行
+### DMG 打包
 
-## 🎯 使用方法
+```bash
+./scripts/build.sh
+```
 
-1. **启动飞秋** — 自动广播上线，发现同网段用户
-2. **选择用户** — 左侧用户列表点击
-3. **发送消息** — 右侧聊天窗口输入，`Cmd+Enter` 发送
-4. **传文件** — 点击📎按钮选择文件（开发中）
-5. **菜单栏** — 右上角气泡图标，快速访问
+## 📡 协议兼容
+
+| 协议 | 兼容性 |
+|------|--------|
+| IPMSG v1 (标准) | ✅ 完全兼容 |
+| 飞鸽传书 (IPMsg) | ✅ 兼容 |
+| 飞秋 (FeiQiu) | ✅ 基本兼容 |
+| 飞秋私有扩展 | ⏳ 部分支持（开发中） |
+
+端口: UDP/TCP 2425 | 编码: UTF-8 + GBK fallback
+
+## 🛠️ 开发状态
+
+| 功能 | 状态 |
+|------|------|
+| IPMSG 协议引擎 | ✅ 完成 |
+| UDP 用户发现/消息 | ✅ 完成 |
+| TCP 文件传输 | ✅ 完成 |
+| macOS 原生 UI | ✅ 完成 |
+| 文件拖拽发送 | ✅ 完成 |
+| 聊天记录持久化 | ✅ 完成 |
+| 群发消息 | ✅ 完成 |
+| AppIcon | ✅ 完成 |
+| DMG 打包脚本 | ✅ 完成 |
+| GitHub Actions CI | ✅ 完成 |
+| 暗黑模式适配 | ✅ 完成 |
+| 图片内联预览 | ⏳ 开发中 |
+| 文件夹传输 | ⏳ 开发中 |
+| 消息加密 | ⏳ 开发中 |
+| 飞秋私有扩展 | 📋 计划中 |
+
+## 📁 项目结构
+
+```
+FeiQiu/
+├── FeiQiu-macOS/
+│   ├── FeiQiuApp.swift           App 入口 + 菜单栏
+│   ├── Info.plist
+│   ├── Models/
+│   │   ├── IPMSGCommand.swift    IPMSG 命令字/选项
+│   │   ├── IPMSGMessage.swift    消息编解码
+│   │   └── User.swift            用户/消息/传输模型
+│   ├── Services/
+│   │   ├── UDPService.swift      UDP 通讯 (BSD Socket)
+│   │   ├── TCPFileService.swift  TCP 文件传输
+│   │   ├── FileSharingService.swift 文件发送/下载
+│   │   ├── ChatHistoryStore.swift   聊天记录持久化
+│   │   └── FeiQiuManager.swift   业务管理器
+│   ├── Views/
+│   │   ├── MainWindow.swift      三栏布局 + 群发
+│   │   ├── ChatView.swift        聊天气泡 + 附件
+│   │   ├── TransferListView.swift 传输管理
+│   │   └── SettingsView.swift    设置
+│   ├── Utilities/
+│   │   └── NetworkInterface.swift
+│   └── Assets.xcassets/          AppIcon
+├── FeiQiuTests/
+├── scripts/build.sh              构建脚本
+├── .github/workflows/            CI/CD
+├── project.yml                   XcodeGen 配置
+└── BUILD_GUIDE.md                编译指南
+```
 
 ## 🧪 测试
 
 1. Mac 和 Windows 连同一 WiFi
 2. Windows 打开飞秋
 3. Mac 启动飞秋 → 用户列表显示 Windows 用户
-4. 互相发消息 / 传文件
-
-## 🛠️ 开发计划
-
-- [x] **Phase 0**: 项目骨架 & 协议引擎
-- [x] **Phase 1**: macOS 原生界面 + UDP 通讯 + 用户发现
-- [ ] **Phase 2**: 文件传输 UI + 完整收发流程
-- [ ] **Phase 3**: 群组聊天、截图、图片消息
-- [ ] **Phase 4**: 飞秋私有协议扩展
-
-## 📁 项目结构
-
-```
-FeiQiu-macOS/
-├── FeiQiuApp.swift           App 入口 + 菜单栏
-├── Info.plist                权限配置
-├── Models/
-│   ├── IPMSGCommand.swift    命令字定义
-│   ├── IPMSGMessage.swift    消息编解码
-│   └── User.swift            用户/消息模型
-├── Services/
-│   ├── UDPService.swift      UDP 通讯 (BSD Socket)
-│   ├── TCPFileService.swift  TCP 文件传输
-│   └── FeiQiuManager.swift   业务管理器
-├── Views/
-│   ├── MainWindow.swift      三栏布局 + 侧边栏
-│   ├── ChatView.swift        聊天界面
-│   ├── TransferListView.swift 传输列表
-│   └── SettingsView.swift    设置
-└── Utilities/
-    └── NetworkInterface.swift 网络接口
-```
+4. 互发消息 / 互传文件
 
 ## 📜 License
 

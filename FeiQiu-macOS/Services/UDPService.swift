@@ -197,6 +197,17 @@ class UDPService {
         send(message: message, to: address)
     }
     
+    /// 广播发送聊天消息（群发）
+    func broadcastChatMessage(text: String) {
+        let message = IPMSGMessageBuilder()
+            .setSender(name: userName, host: hostName)
+            .setCommand(.sendMsg, options: [.utf8, .broadcast])
+            .setAdditionalData(text)
+            .build()
+        
+        broadcast(message: message)
+    }
+    
     /// 确认收到消息
     func sendReceiveConfirm(packetNo: UInt32, to address: String) {
         let message = IPMSGMessageBuilder()
