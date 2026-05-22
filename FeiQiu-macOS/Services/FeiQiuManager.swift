@@ -276,6 +276,125 @@ class FeiQiuManager: ObservableObject {
         chatHistory[user.ipAddress]?.append(message)
     }
     
+    /// 发送文件
+    func sendFiles(_ fileURLs: [URL], to user: LANUser, message: String = "") {
+        guard !fileURLs.isEmpty else { return }
+        
+        let packetNo = UInt32(Date().timeIntervalSince1970)
+        let fileService = FileSharingService.shared
+        
+        // 准备附件信息
+        let attachmentData = fileService.prepareFileAttachments(fileURLs: fileURLs, packetNo: packetNo)
+        
+        // 构建消息内容: 正文\0附件数据
+        let text = message.isEmpty ? "发送了 \(fileURLs.count) 个文件" : message
+        let additionalData = "\(text)\0\(attachmentData)"
+        
+        // 发送带附件的 IPMSG 消息
+        let ipmsgMessage = IPMSGMessageBuilder()
+            .setSender(name: userName, host: hostName)
+            .setCommand(.sendMsg, options: [.sendCheck, .utf8, .fileAttach])
+            .setAdditionalData(additionalData)
+            .build()
+        
+        udpService.send(message: ipmsgMessage, to: user.ipAddress)
+        
+        // 加入本地聊天历史
+        let chatMessage = ChatMessage(
+            packetNo: packetNo,
+            sender: nil,
+            direction: .sent,
+            type: .file,
+            content: text
+        )
+        
+        // 解析附件信息
+        var attachments: [IPMSGFileAttachment] = []
+        for (index, url) in fileURLs.enumerated() {
+            let fileID = String(index + 1)
+            let attrs = try? FileManager.default.attributesOfItem(atPath: url.path)
+            let fileSize = (attrs?[.size] as? UInt64) ?? 0
+            let modDate = (attrs?[.modificationDate] as? Date)
+            let fileTime = modDate != nil ? UInt64(modDate!.timeIntervalSince1970) : 0
+            let isDir = (attrs?[.type] as? FileAttributeType) == .typeDirectory
+            
+            let attachment = IPMSGFileAttachment(
+                fileID: fileID,
+                fileName: url.lastPathComponent,
+                fileSize: fileSize,
+                fileAttr: isDir ? IPMSGFileAttr.dir.rawValue : IPMSGFileAttr.file.rawValue,
+                fileTime: fileTime
+            )
+            attachments.append(attachment)
+        }
+        chatMessage.attachments = attachments
+        
+        if chatHistory[user.ipAddress] == nil {
+            chatHistory[user.ipAddress] = []
+        }
+        chatHistory[user.ipAddress]?.append(chatMessage)
+        
+        // 创建发送任务（用于显示在传输列表）
+        for att in attachments {
+            let task = FileTransferTask(
+                fileName: att.fileName,
+                fileSize: att.fileSize,
+                direction: .sent,
+                remoteIP: user.ipAddress,
+                packetNo: packetNo,
+                fileID: att.fileID
+            )
+            task.state = .completed  // 发送方文件已在本地，标记为"等待对方下载"
+            transferTasks.append(task)
+        }
+    }
+    
+    /// 下载文件
+    func downloadFile(attachment: IPMSGFileAttachment, packetNo: UInt32, from user: LANUser, saveDirectory: URL? = nil) {
+        let fileService = FileSharingService.shared
+        
+        let task = fileService.downloadFile(
+            packetNo: packetNo,
+            fileID: attachment.fileID,
+            fileName: attachment.fileName,
+            fileSize: attachment.fileSize,
+            remoteIP: user.ipAddress,
+            localUserName: userName,
+            localHostName: hostName,
+            saveDirectory: saveDirectory
+        )
+        
+        transferTasks.append(task)
+        
+        // 监听完成
+        fileService.onTransferComplete = { [weak self] completedTask, result in
+            DispatchQueue.main.async {
+                if case .success(let saveURL) = result {
+                    // 更新聊天消息中的附件保存路径
+                    if let msgs = self?.chatHistory[user.ipAddress] {
+                        for msg in msgs {
+                            if msg.packetNo == packetNo {
+                                if msg.attachmentSavePaths == nil {
+                                    msg.attachmentSavePaths = [:]
+                                }
+                                msg.attachmentSavePaths?[attachment.fileID] = saveURL
+                            }
+                        }
+                    }
+                    // 更新传输任务的保存路径
+                    completedTask.saveURL = saveURL
+                }
+            }
+        }
+    }
+    
+    /// 选择文件并发送
+    func selectAndSendFiles(to user: LANUser) {
+        let fileURLs = FileSharingService.showOpenPanel(allowMultiple: true)
+        guard !fileURLs.isEmpty else { return }
+        sendFiles(fileURLs, to: user)
+    }
+    
     /// 手动刷新用户列表（重新发送 BR_ENTRY）
     func refreshUserList() {
         udpService.sendEntryBroadcast(groupName: groupName)

@@ -5,7 +5,7 @@ import SwiftUI
 struct MainWindow: View {
     @EnvironmentObject var manager: FeiQiuManager
     @State private var selectedUser: LANUser?
-    @State private var showTransferWindow = false
+    @State private var dragOver = false
     
     var body: some View {
         NavigationSplitView {
@@ -15,6 +15,25 @@ struct MainWindow: View {
             // 右侧: 聊天界面
             if let user = selectedUser {
                 ChatView(user: user)
+                    .onDrop(of: [.fileURL], isTargeted: $dragOver) { providers in
+                        handleDrop(providers: providers, user: user)
+                    }
+                    .overlay {
+                        if dragOver {
+                            VStack(spacing: 12) {
+                                Image(systemName: "arrow.down.doc.fill")
+                                    .font(.system(size: 48))
+                                    .foregroundColor(.orange)
+                                Text("拖拽文件到此处发送给 \(user.name)")
+                                    .font(.headline)
+                                    .foregroundColor(.secondary)
+                            }
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                            .background(Color.orange.opacity(0.08))
+                            .cornerRadius(8)
+                            .padding()
+                        }
+                    }
             } else {
                 EmptyChatView()
             }
@@ -27,17 +46,31 @@ struct MainWindow: View {
                     Label("刷新", systemImage: "arrow.clockwise")
                 }
                 .help("刷新用户列表")
-                
-                Button {
-                    if let url = URL(string: "x-apple.systempreferences:com.apple.preference.network") {
-                        NSWorkspace.shared.open(url)
-                    }
-                } label: {
-                    Label("网络", systemImage: "network")
-                }
-                .help("网络设置")
             }
         }
+    }
+    
+    private func handleDrop(providers: [NSItemProvider], user: LANUser) -> Bool {
+        var fileURLs: [URL] = []
+        let group = DispatchGroup()
+        
+        for provider in providers {
+            group.enter()
+            provider.loadItem(forTypeIdentifier: "public.file-url", options: nil) { data, error in
+                defer { group.leave() }
+                guard let data = data as? Data,
+                      let url = URL(dataRepresentation: data, relativeTo: nil) else { return }
+                fileURLs.append(url)
+            }
+        }
+        
+        group.notify(queue: .main) {
+            if !fileURLs.isEmpty {
+                manager.sendFiles(fileURLs, to: user)
+            }
+        }
+        
+        return true
     }
 }
 

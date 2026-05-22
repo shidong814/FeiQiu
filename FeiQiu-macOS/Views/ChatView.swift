@@ -84,7 +84,7 @@ struct ChatView: View {
             
             // 操作按钮
             Button {
-                // TODO: 发送文件
+                manager.selectAndSendFiles(to: user)
             } label: {
                 Image(systemName: "paperclip")
                     .foregroundColor(.secondary)
@@ -94,8 +94,11 @@ struct ChatView: View {
             
             Button {
                 // 打开传输窗口
-                if let url = URL(string: "x-apple.systempreferences:com.apple.preference.network") {
-                    NSWorkspace.shared.open(url)
+                for window in NSApp.windows {
+                    if window.identifier?.rawValue == "transfers" {
+                        window.makeKeyAndOrderFront(nil)
+                        return
+                    }
                 }
             } label: {
                 Image(systemName: "arrow.up.arrow.down.circle")
@@ -115,17 +118,39 @@ struct ChatView: View {
         VStack(spacing: 0) {
             // 工具栏
             HStack(spacing: 12) {
-                Button { /* TODO: 发送文件 */ } label: {
+                Button {
+                    manager.selectAndSendFiles(to: user)
+                } label: {
                     Image(systemName: "folder")
                 }
                 .help("发送文件")
                 
-                Button { /* TODO: 发送图片 */ } label: {
+                Button {
+                    // 选择图片发送
+                    let panel = NSOpenPanel()
+                    panel.canChooseFiles = true
+                    panel.canChooseDirectories = false
+                    panel.allowsMultipleSelection = true
+                    panel.title = "选择图片"
+                    panel.allowedContentTypes = [.image]
+                    if panel.runModal() == .OK, !panel.urls.isEmpty {
+                        manager.sendFiles(panel.urls, to: user)
+                    }
+                } label: {
                     Image(systemName: "photo")
                 }
                 .help("发送图片")
                 
-                Button { /* TODO: 截图 */ } label: {
+                Button {
+                    // macOS 截图
+                    DispatchQueue.global().async {
+                        let task = Process()
+                        task.launchPath = "/usr/sbin/screencapture"
+                        task.arguments = ["-i", "-c"]  // 交互截图到剪贴板
+                        task.launch()
+                        task.waitUntilExit()
+                    }
+                } label: {
                     Image(systemName: "scissors")
                 }
                 .help("截图")
@@ -223,7 +248,29 @@ struct MessageBubble: View {
                 if let attachments = message.attachments, !attachments.isEmpty {
                     VStack(spacing: 4) {
                         ForEach(attachments, id: \.fileID) { att in
-                            FileAttachmentRow(attachment: att, isSent: isSent)
+                            FileAttachmentRow(
+                                attachment: att,
+                                isSent: isSent,
+                                onDownload: {
+                                    // 下载文件
+                                    if let sender = user as LANUser? {
+                                        FeiQiuManager.shared.downloadFile(
+                                            attachment: att,
+                                            packetNo: message.packetNo,
+                                            from: sender
+                                        )
+                                    }
+                                },
+                                onOpen: {
+                                    // 打开已保存的文件
+                                    if let savePath = message.attachmentSavePaths?[att.fileID] {
+                                        NSWorkspace.shared.open(savePath)
+                                    } else if let dir = message.attachmentSavePaths?[att.fileID] {
+                                        NSWorkspace.shared.open(dir)
+                                    }
+                                },
+                                isSaved: message.attachmentSavePaths?[att.fileID] != nil
+                            )
                         }
                     }
                 }
@@ -282,37 +329,96 @@ struct MessageBubble: View {
 struct FileAttachmentRow: View {
     let attachment: IPMSGFileAttachment
     let isSent: Bool
+    var onDownload: (() -> Void)? = nil
+    var onOpen: (() -> Void)? = nil
+    var isSaved: Bool = false
     
     var body: some View {
         HStack(spacing: 8) {
-            Image(systemName: attachment.isDirectory ? "folder.fill" : "doc.fill")
-                .foregroundColor(.orange)
-                .font(.system(size: 16))
+            // 文件图标
+            fileIcon
             
             VStack(alignment: .leading, spacing: 1) {
                 Text(attachment.fileName)
                     .font(.system(size: 12))
                     .lineLimit(1)
-                Text(ByteCountFormatter.string(fromByteCount: Int64(attachment.fileSize), countStyle: .file))
-                    .font(.system(size: 10))
-                    .foregroundColor(.secondary)
+                    .frame(maxWidth: 180, alignment: .leading)
+                
+                HStack(spacing: 4) {
+                    Text(ByteCountFormatter.string(fromByteCount: Int64(attachment.fileSize), countStyle: .file))
+                        .font(.system(size: 10))
+                        .foregroundColor(.secondary)
+                    
+                    if attachment.isDirectory {
+                        Text("文件夹")
+                            .font(.system(size: 10))
+                            .foregroundColor(.orange)
+                    }
+                    
+                    if isSaved {
+                        Text("已保存")
+                            .font(.system(size: 10))
+                            .foregroundColor(.green)
+                    }
+                }
             }
             
             Spacer()
             
-            if !isSent {
+            // 操作按钮
+            if isSaved {
                 Button {
-                    // TODO: 下载文件
+                    onOpen?()
                 } label: {
-                    Image(systemName: "arrow.down.circle")
+                    Image(systemName: "folder")
+                }
+                .buttonStyle(.plain)
+                .help("打开文件")
+            } else if !isSent {
+                Button {
+                    onDownload?()
+                } label: {
+                    Image(systemName: "arrow.down.circle.fill")
+                        .foregroundColor(.orange)
                 }
                 .buttonStyle(.plain)
                 .help("下载文件")
             }
         }
-        .padding(6)
+        .padding(8)
         .background(Color(nsColor: .controlBackgroundColor).opacity(0.5))
         .clipShape(RoundedRectangle(cornerRadius: 6))
-        .frame(maxWidth: 250)
+        .frame(maxWidth: 280)
+    }
+    
+    @ViewBuilder
+    private var fileIcon: some View {
+        if attachment.isDirectory {
+            Image(systemName: "folder.fill")
+                .foregroundColor(.orange)
+                .font(.system(size: 20))
+        } else {
+            let ext = (attachment.fileName as NSString).pathExtension.lowercased()
+            let (iconName, iconColor) = fileIconInfo(for: ext)
+            Image(systemName: iconName)
+                .foregroundColor(iconColor)
+                .font(.system(size: 18))
+        }
+    }
+    
+    private func fileIconInfo(for ext: String) -> (String, Color) {
+        switch ext {
+        case "pdf": return ("doc.fill", .red)
+        case "doc", "docx": return ("doc.fill", .blue)
+        case "xls", "xlsx": return ("chart.bar.doc.fill", .green)
+        case "ppt", "pptx": return ("doc.richtext.fill", .orange)
+        case "jpg", "jpeg", "png", "gif", "bmp", "webp", "heic": return ("photo.fill", .purple)
+        case "mp3", "wav", "aac", "flac", "m4a": return ("music.note", .pink)
+        case "mp4", "mov", "avi", "mkv", "wmv": return ("film.fill", .blue)
+        case "zip", "rar", "7z", "tar", "gz": return ("doc.zipper.fill", .gray)
+        case "txt", "md", "log": return ("doc.plaintext.fill", .gray)
+        case "swift", "py", "js", "java", "c", "cpp", "h", "go", "rs": return ("chevron.left.forwardslash.chevron.right", .orange)
+        default: return ("doc.fill", .secondary)
+        }
     }
 }

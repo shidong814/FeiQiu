@@ -227,6 +227,10 @@ class TCPFileService {
         progressHandler: @escaping (UInt64) -> Void,
         completion: @escaping (Result<Void, Error>) -> Void
     ) {
+        // 确保目录存在
+        let dir = saveURL.deletingLastPathComponent()
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        
         // 创建文件
         FileManager.default.createFile(atPath: saveURL.path, contents: nil, attributes: nil)
         guard let fileHandle = try? FileHandle(forWritingTo: saveURL) else {
@@ -236,6 +240,7 @@ class TCPFileService {
         }
         
         var receivedSize: UInt64 = 0
+        var lastProgressUpdate: TimeInterval = 0
         
         func receiveChunk() {
             connection.receive(minimumIncompleteLength: 1, maximumLength: 64 * 1024) { content, _, isComplete, error in
@@ -249,11 +254,18 @@ class TCPFileService {
                 if let data = content, !data.isEmpty {
                     fileHandle.write(data)
                     receivedSize += UInt64(data.count)
-                    progressHandler(receivedSize)
+                    
+                    // 节流更新进度（每 100ms 一次）
+                    let now = Date().timeIntervalSince1970
+                    if now - lastProgressUpdate > 0.1 || receivedSize >= expectedSize {
+                        lastProgressUpdate = now
+                        progressHandler(receivedSize)
+                    }
                 }
                 
                 if isComplete || receivedSize >= expectedSize {
                     try? fileHandle.close()
+                    progressHandler(receivedSize)
                     completion(.success(()))
                     connection.cancel()
                 } else {

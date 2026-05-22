@@ -131,6 +131,7 @@ class ChatMessage: Identifiable {
     var isRead: Bool
     var isConfirmed: Bool          // 对方是否确认收到
     var attachments: [IPMSGFileAttachment]? // 附件列表
+    var attachmentSavePaths: [String: URL]? // 附件保存路径 (fileID -> URL)
     
     init(packetNo: UInt32, sender: LANUser?, direction: ChatMessageDirection,
          type: ChatMessageType = .text, content: String, isRead: Bool = false) {
@@ -163,10 +164,14 @@ class FileTransferTask: Identifiable, ObservableObject {
     let direction: ChatMessageDirection
     let remoteIP: String
     let remotePort: UInt16
+    let timestamp = Date()
+    let packetNo: UInt32           // IPMSG 包序号（用于 TCP 请求）
+    let fileID: String             // 文件序号
     
     @Published var state: FileTransferState = .waiting
     @Published var transferredSize: UInt64 = 0
     @Published var speed: Double = 0  // bytes/sec
+    @Published var saveURL: URL?      // 保存路径
     
     var progress: Double {
         guard fileSize > 0 else { return 0 }
@@ -185,12 +190,35 @@ class FileTransferTask: Identifiable, ObservableObject {
         ByteCountFormatter.string(fromByteCount: Int64(transferredSize), countStyle: .file)
     }
     
+    var elapsedTime: String {
+        let interval = Date().timeIntervalSince(timestamp)
+        let mins = Int(interval) / 60
+        let secs = Int(interval) % 60
+        if mins > 0 {
+            return "\(mins)分\(secs)秒"
+        }
+        return "\(secs)秒"
+    }
+    
+    var remainingTime: String {
+        guard speed > 0 else { return "计算中..." }
+        let remaining = Double(fileSize - transferredSize) / speed
+        let mins = Int(remaining) / 60
+        let secs = Int(remaining) % 60
+        if mins > 0 {
+            return "约\(mins)分\(secs)秒"
+        }
+        return "约\(secs)秒"
+    }
+    
     init(fileName: String, fileSize: UInt64, direction: ChatMessageDirection,
-         remoteIP: String, remotePort: UInt16 = 2425) {
+         remoteIP: String, remotePort: UInt16 = 2425, packetNo: UInt32 = 0, fileID: String = "1") {
         self.fileName = fileName
         self.fileSize = fileSize
         self.direction = direction
         self.remoteIP = remoteIP
         self.remotePort = remotePort
+        self.packetNo = packetNo
+        self.fileID = fileID
     }
 }

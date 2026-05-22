@@ -4,6 +4,7 @@ import SwiftUI
 
 struct SettingsView: View {
     @EnvironmentObject var manager: FeiQiuManager
+    @AppStorage("downloadPath") private var downloadPath: String = ""
     
     var body: some View {
         TabView {
@@ -24,6 +25,16 @@ struct SettingsView: View {
 
 struct GeneralSettingsView: View {
     @EnvironmentObject var manager: FeiQiuManager
+    @AppStorage("downloadPath") private var downloadPath: String = ""
+    @AppStorage("launchAtLogin") private var launchAtLogin: Bool = false
+    @AppStorage("minimizeToMenuBar") private var minimizeToMenuBar: Bool = false
+    
+    private var defaultDownloadPath: String {
+        FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent("Downloads")
+            .appendingPathComponent("飞秋")
+            .path
+    }
     
     var body: some View {
         Form {
@@ -35,9 +46,31 @@ struct GeneralSettingsView: View {
                     .textFieldStyle(.roundedBorder)
             }
             
+            Section("文件接收") {
+                HStack {
+                    TextField("下载目录", text: Binding(
+                        get: { downloadPath.isEmpty ? defaultDownloadPath : downloadPath },
+                        set: { downloadPath = $0 == defaultDownloadPath ? "" : $0 }
+                    ))
+                    .textFieldStyle(.roundedBorder)
+                    
+                    Button("选择") {
+                        if let url = FileSharingService.showFolderPanel() {
+                            downloadPath = url.path
+                        }
+                    }
+                }
+                
+                Button("打开下载目录") {
+                    let dir = downloadPath.isEmpty ? defaultDownloadPath : downloadPath
+                    let url = URL(fileURLWithPath: dir)
+                    NSWorkspace.shared.open(url)
+                }
+            }
+            
             Section("启动") {
-                Toggle("开机自动启动", isOn: .constant(false))
-                Toggle("启动时最小化到菜单栏", isOn: .constant(false))
+                Toggle("开机自动启动", isOn: $launchAtLogin)
+                Toggle("启动时最小化到菜单栏", isOn: $minimizeToMenuBar)
             }
         }
         .padding(20)
